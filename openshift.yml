@@ -1,0 +1,23 @@
+---
+- name: OpenShift Master
+
+  hosts: master
+  remote_user: pi
+  become: true
+
+  roles:
+  - role: openshift
+    mode: master
+    # "master" must be an IP, otherwise flannel will core dump:
+    master: 192.168.23.200
+
+- name: OpenShift Nodes
+
+  hosts: nodes
+  remote_user: pi
+  become: true
+
+  roles:
+  - role: openshift
+    mode: node
+    master: 192.168.23.200

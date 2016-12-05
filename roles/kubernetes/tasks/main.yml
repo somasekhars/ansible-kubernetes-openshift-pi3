@@ -1,0 +1,41 @@
+- name: Ensure files/bin/ directory
+  file: path="{{ role_path }}/files/bin" state=directory
+  delegate_to: 127.0.0.1
+  
+- name: Download kubelet & kubectl
+  get_url:
+    url: https://storage.googleapis.com/kubernetes-release/release/v{{ version.kubernetes}}/bin/linux/arm/{{ item }}
+    dest: "{{ role_path }}/files/bin/{{ item }}"
+  delegate_to: 127.0.0.1
+  with_items:
+    - kubelet
+    - kubectl
+
+- name: Install Binaries
+  copy: src=bin/{{ item }} dest=/usr/bin/{{ item }} owner=root group=root mode=0755
+  with_items:
+    - kubelet
+    - kubectl
+
+- name: Create Kubernetes config directory
+  file: path=/etc/kubernetes/manifests/ state=directory recurse=no owner=root group=root mode=0755
+
+- name: Add certs
+  include: certs.yml
+  when: mode == "master"
+
+- name: Copy configuration
+  template: src=kubernetes-{{ mode }}.yml dest=/etc/kubernetes/manifests/kubernetes.yaml
+
+- name: Setup profile
+  template: src=kubernetes_profile.sh dest=/etc/profile.d/kubernetes.sh mode=0644
+
+- name: Install kubelet service definition
+  template: src=kubelet.service dest=/etc/systemd/system/kubelet.service owner=root group=root mode=0644
+  register: result
+  notify:
+    - restart kubelet
+
+- name: Reload systemd when service definition changed
+  command: systemctl daemon-reload
+  when: result|changed
